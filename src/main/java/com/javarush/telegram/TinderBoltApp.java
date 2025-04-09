@@ -9,7 +9,9 @@ import org.telegram.telegrambots.meta.api.objects.*;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
+import javax.swing.*;
 import java.util.ArrayList;
+import java.util.List;
 
 public class TinderBoltApp extends MultiSessionTelegramBot {
     public static final String TELEGRAM_BOT_NAME = "serga_test_javarush_tinder_ai_bot"; //имя бота в кавычках
@@ -18,6 +20,7 @@ public class TinderBoltApp extends MultiSessionTelegramBot {
 
     private ChatGPTService chatGPT = new ChatGPTService(OPEN_AI_TOKEN);
     private  DialogMode currentMode = null;
+    private List<String> list;
 
     public TinderBoltApp() {
         super(TELEGRAM_BOT_NAME, TELEGRAM_BOT_TOKEN);
@@ -52,10 +55,71 @@ public class TinderBoltApp extends MultiSessionTelegramBot {
             return;
         }
 
+
         if(currentMode.equals(DialogMode.GPT)){
             String prompt = loadPrompt("gpt");
+
+            Message msg = sendTextMessage("Подождите пару секунд - ChatGPT думает....");
             String answer = chatGPT.sendMessage(prompt, message);
-            sendTextMessage(answer);
+            updateTextMessage(msg, answer);
+            return;
+        }
+
+        //command date
+        if(message.equals("/date")) {
+            currentMode = DialogMode.DATE;
+            sendPhotoMessage("date");
+            String text = loadMessage("date");
+             sendTextButtonsMessage(text,
+                    "Арина Гранде", "date_grande",
+                     "Марго Робби", "date_robbie",
+                     "Зендея", "date_zendaya",
+                     "Райн Гослинг", "date_gosling",
+                    "Том Харди", "date_hardy");
+            return;
+        }
+        if(currentMode.equals(DialogMode.DATE)){
+            String query = getCallbackQueryButtonKey();
+            if(query.startsWith("date_")){
+                 sendPhotoMessage(query);
+                 sendTextMessage("Отличный выбор! \n Твоя задача пригласить девушку/парня на свидание ❤\uFE0F за 5 сообщений.");
+
+                 String prompt = loadPrompt(query);
+                 chatGPT.setPrompt(prompt);
+                return;
+            }
+
+            Message msg = sendTextMessage("Подождите девушка набирает текст...");
+            String answer = chatGPT.addMessage(message);
+            updateTextMessage(msg, answer);
+
+
+            return;
+        }
+
+
+        //command message
+        if(message.equals("/message")) {
+            currentMode = DialogMode.MESSAGE;
+            sendPhotoMessage("message");
+            sendTextButtonsMessage("Пришлите в чат Вашу переписку",
+                    "Следующее сообщение", "message_next",
+                    "Пригласить на свидание", "message_date"
+            );
+            return;
+        }
+        if(currentMode.equals(DialogMode.MESSAGE)){
+            String query = getCallbackQueryButtonKey();
+            if(query.startsWith("message_")){
+                String prompt = loadPrompt(query);
+                String userChatHistory = String.join("\n\n", list);
+
+                Message msg = sendTextMessage("Подождите пару секунд - ChatGPT думает....");
+                String answer = chatGPT.sendMessage("Переписка", message);
+                updateTextMessage(msg, answer);
+                return;
+            }
+            list.add(message);
             return;
         }
 
